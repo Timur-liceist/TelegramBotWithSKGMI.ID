@@ -8,5 +8,6 @@ class User(SqlAlchemyBase):
 
     id = sqlalchemy.Column(sqlalchemy.Integer,
                            primary_key=True, autoincrement=True)
-    login = sqlalchemy.Column(sqlalchemy.String, unique=True)
-    password = sqlalchemy.Column(sqlalchemy.String, unique=True)
+    skgmi_id = sqlalchemy.Column(sqlalchemy.String)
+    # login = sqlalchemy.Column(sqlalchemy.String, unique=True)
+    # password = sqlalchemy.Column(sqlalchemy.String, unique=True)
