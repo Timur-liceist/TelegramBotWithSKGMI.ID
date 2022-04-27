@@ -1,7 +1,6 @@
 import calendar
 import datetime
 import json
-# from pprint import pprint
 
 import requests
 from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton, Update
@@ -9,30 +8,51 @@ from telegram.ext import Updater, MessageHandler, Filters, ConversationHandler, 
 
 from data import db_session
 from data.user import User
+dic_semestrs = {1: "Первый семестр", 2: "Второй семестр", 3: "Третий семестр", 4: "Четвёртый семестр",
+                   5: "Пятый семестр", 6: "Шестой семестр", 7: "Седьмой семестр", 8: "Восьмой семестр",
+                   9: "Девятый семестр"}
+# from pprint import pprint
 
 TOKEN = "5202082113:AAGXyFL-I9Q1j-Nne1YRY7mawvKCdKlDIqY"
 from telegram.ext import CommandHandler
 
-name = [['Первая кнопка!']]
+text_commands = [["/getId", "/getFIO", "/watch"],
+                 ["/sess", "/rating", "/logout"],
+                 ["/help", "/myId", "/start"]]
 # inline_btn_1 = InlineKeyboardButton('Первая кнопка!', callback_data='button1')
-inline_kb1 = ReplyKeyboardMarkup(name)
+commands = ReplyKeyboardMarkup(text_commands)
 
 
 def genarateCodeAndSendOnEmail(name_user):
     # code = requests.post(f"{name_user}/DesktopModules/Expasys/BotApi/API/Confirmation/GenerateCode")
-    code = requests.post(f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Confirmation/GenerateCode?skgmiId={name_user}")
+    code = requests.post(
+        f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Confirmation/GenerateCode?skgmiId={name_user}")
     # print(code.json())
     return code.json()
-def getLessonsForStudent(skgmiId, date=None):
+
+
+def getLessonsForStudent(skgmiId, month, day, year):
     # print(1)
     # print(f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Schedule/GetSchedule?skgmiId={skgmiId}")
     # response = requests.get(f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Schedule/GetSchedule?skmgiId={skgmiId}")
-    response = requests.get(f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Schedule/GetSchedule?skgmiId=timur@skgmi.id&date=2022-04-11%2014:58:22.5633333")
-    # print(2)
+    if len(str(month)) == 1:
+        month = "0" + str(month)
+    if len(str(day)) == 1:
+        month = "0" + str(day)
+    print(f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Schedule/GetSchedule?skgmiId=timur@skgmi.id&date={year}-{month}-{day}")
+    response = requests.get(
+        # f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Schedule/GetSchedule?skgmiId=timur@skgmi.id&date=2022-04-11%2014:58:22.5633333")
+        f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Schedule/GetSchedule?skgmiId=timur@skgmi.id&date={year}-{month}-{day}")
+
     return json.loads(response.json())
-def getUserName(skgmiId): #ByUsername
-    response = requests.get(f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/UserData/ByUsername?skgmiId={skgmiId}")
-    return response.json()
+
+
+def getUserName(skgmiId):  # ByUsername
+    response = requests.get(
+        f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/UserData/ByUsername?skgmiId={skgmiId}")
+    return json.loads(response.json())
+
+
 def ValidateCode(skgmiId, code, telegram_id):
     response = requests.get(f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Confirmation/ValidateCode"
                             f"?skgmiId={skgmiId}&code={code}&telegramId={telegram_id}")
@@ -45,7 +65,9 @@ def help(update, context):
         "Вот список моих команд:\n"
         "/logout - выйти из аккаунта\n"
         "/watch - просмотреть расписание\n"
-        "/reg - войти в аккаунт", reply_markup=inline_kb1)
+        "/find_id - просмотр SKGMI.ID по ФИО\n"
+        "/rating - просмотр просмотр рейтинга(для студентов)\n"
+        "/reg - войти в аккаунт", reply_markup=commands)
 
 
 def start_new_reg(update, context):
@@ -58,6 +80,15 @@ def start_new_reg(update, context):
         return ConversationHandler.END
 
 
+def myId(update, context):
+    t = proverka(update, context)
+    if t:
+        sess = db_session.create_session()
+        user = sess.query(User).filter(User.id == update.message.chat_id).first()
+        update.message.reply_text("Ваш SKGMI.ID - " + user.skgmi_id)
+    else:
+        update.message.reply_text("Вы не зарегитрированы")
+        update.message.reply_text("Для регистрации используйте /reg")
 
 
 def watch(update, context):
@@ -68,8 +99,10 @@ def watch(update, context):
         number_month = dt_obj.strftime("%m")
         context.user_data["number_month"] = int(number_month)
         context.user_data["year"] = int(year)
-        calendar_days = creat_inlinekeyboard(year, number_month, "watch")
+        calendar_days = creat_inlinekeyboard(year, number_month)
         # pprint(calendar_days)
+        # https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Schedule/GetSchedule?skgmiId=timur@skgmi.id&date=2022-04-11%2014:58:22.5633333
+
         update.message.reply_text("Выберите день",
                                   reply_markup=InlineKeyboardMarkup(calendar_days))
     else:
@@ -134,8 +167,8 @@ def start(update, context):
     update.message.reply_text(
         "Здравствуйте я ваш помощник с расписанием.\n"
         "Чтобы начать работать вы должны зарегистрироваться через команду - /reg\n"
-        "Если нужна помощь с командами к вашим услугам команда /help"
-    )
+        "Если нужна помощь с командами к вашим услугам команда /help",
+    reply_markup=commands)
 
 
 def proverka(update, context):
@@ -160,10 +193,10 @@ def start_reg(update, context):
 
 
 def cancel(update, context):
-    update.message.reply_text("Регистрация отменена")
+    update.message.reply_text("Отмена")
 
 
-def creat_inlinekeyboard(year, number_month, watching=None):
+def creat_inlinekeyboard(year, number_month):
     string_month = calendar.month_name[int(number_month)]
     days_week = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
     matrix = [[InlineKeyboardButton(f"{string_month} {year}", callback_data="No")],
@@ -177,27 +210,16 @@ def creat_inlinekeyboard(year, number_month, watching=None):
     for i in range(len(calendar_days)):
         for j in range(len(calendar_days[i])):
             if calendar_days[i][j]:
-                if not watching:
-                    calendar_days[i][j] = InlineKeyboardButton(str(calendar_days[i][j]),
-                                                               callback_data=str(calendar_days[i][j]))
-                else:
-                    calendar_days[i][j] = InlineKeyboardButton(str(calendar_days[i][j]),
-                                                               callback_data=f"watch_lessons {calendar_days[i][j]}")
+                calendar_days[i][j] = InlineKeyboardButton(str(calendar_days[i][j]),
+                                                           callback_data=f"watch_lessons {calendar_days[i][j]}")
             else:
                 calendar_days[i][j] = InlineKeyboardButton(" ", callback_data="No")
     matrix.extend(calendar_days)
-    if not watching:
-        matrix.append([InlineKeyboardButton("<=", callback_data="left"),
-                       InlineKeyboardButton(" ", callback_data="No"),
-                       InlineKeyboardButton("=>", callback_data="right")])
-    else:
-        matrix.append([InlineKeyboardButton("<=", callback_data="left"),
-                       InlineKeyboardButton(" ", callback_data="No"),
-                       InlineKeyboardButton("=>", callback_data="right watching")])
-    if not watching:
-        matrix.append([InlineKeyboardButton("Отмена", callback_data="cancel")])
-    else:
-        matrix.append([InlineKeyboardButton("Отмена", callback_data="cancel_watch")])
+    matrix.append([InlineKeyboardButton("<=", callback_data="left"),
+                   InlineKeyboardButton(" ", callback_data="No"),
+                   InlineKeyboardButton("=>", callback_data="right")])
+
+    matrix.append([InlineKeyboardButton("Отмена", callback_data="cancel")])
     return matrix
 
 
@@ -256,6 +278,41 @@ def keyboard_buttons_query(update: Update, context: CallbackContext):
         days = InlineKeyboardMarkup(creat_inlinekeyboard(year, number_month))
         query.edit_message_text("Выберите день",
                                 reply_markup=days)
+    elif data == "right_sess":
+        semestr = context.user_data["semestr"]
+        if semestr + 1 <= len(dic_semestrs):
+            sess = db_session.create_session()
+            user = sess.query(User).filter(User.id == query.message.chat_id).first()
+            response = getSession(user.skgmi_id)
+            keyboard = [[InlineKeyboardButton(dic_semestrs[semestr + 1], callback_data="No")],
+                        [InlineKeyboardButton("<=", callback_data="left_sess"),
+                         InlineKeyboardButton("=>", callback_data="right_sess")],
+                        [InlineKeyboardButton("Предмет | Тип | Оценка", callback_data="No")]]
+            for i in response:
+                print(i)
+                if i["Term"] == dic_semestrs[semestr + 1]:
+                    button = InlineKeyboardButton(f"""{i["Subject"]}|{i["TypeOfTheControl"]}|{i["Mark"]}""",
+                                                  callback_data="No")
+                    keyboard.append([button])
+            context.user_data["semestr"] += 1
+            query.edit_message_text("Ваш рейтинг", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif data == "left_sess":
+        semestr = context.user_data["semestr"]
+        if semestr - 1 >= 1:
+            sess = db_session.create_session()
+            user = sess.query(User).filter(User.id == query.message.chat_id).first()
+            response = getSession(user.skgmi_id)
+            keyboard = [[InlineKeyboardButton(dic_semestrs[semestr - 1], callback_data="No")],
+                        [InlineKeyboardButton("<=", callback_data="left_sess"),
+                         InlineKeyboardButton("=>", callback_data="right_sess")],
+                        [InlineKeyboardButton("Предмет | Тип | Оценка", callback_data="No")]]
+            for i in response:
+                if i["Term"] == dic_semestrs[semestr - 1]:
+                    button = InlineKeyboardButton(f"""{i["Subject"]}|{i["TypeOfTheControl"]}|{i["Mark"]}""",
+                                                  callback_data="No")
+                    keyboard.append([button])
+            context.user_data["semestr"] -= 1
+            query.edit_message_text("Ваш рейтинг", reply_markup=InlineKeyboardMarkup(keyboard))
     elif data.split()[0] == "left":
         number_month = context.user_data["number_month"]
         year = context.user_data["year"]
@@ -269,7 +326,7 @@ def keyboard_buttons_query(update: Update, context: CallbackContext):
             context.user_data["number_month"] -= 1
         if len(data.split()) == 2:
             if data.split()[1] == "watching":
-                days = InlineKeyboardMarkup(creat_inlinekeyboard(year, number_month, "watch"))
+                days = InlineKeyboardMarkup(creat_inlinekeyboard(year, number_month))
         else:
             days = InlineKeyboardMarkup(creat_inlinekeyboard(year, number_month))
         query.edit_message_text("Выберите день",
@@ -277,48 +334,102 @@ def keyboard_buttons_query(update: Update, context: CallbackContext):
     elif data.split()[0] == "watch_lessons":
         role = "student"
         if role == "student":
-            keyboard_of_lessons = [
-                [InlineKeyboardButton("Математика", callback_data="No")],
-                [InlineKeyboardButton("Английский язык", callback_data="No")],
-                [InlineKeyboardButton("Информатика", callback_data="No")],
-                [InlineKeyboardButton("Физика", callback_data="No")],
-                [InlineKeyboardButton("Назад", callback_data="back_to_watch_calendar_days")]
-            ]
+            # keyboard_of_lessons = [
+            #     [InlineKeyboardButton("Математика", callback_data="No")],
+            #     [InlineKeyboardButton("Английский язык", callback_data="No")],
+            #     [InlineKeyboardButton("Информатика", callback_data="No")],
+            #     [InlineKeyboardButton("Физика", callback_data="No")],
+            #     [InlineKeyboardButton("Назад", callback_data="back_to_watch_calendar_days")]
+            # ]
             context.user_data["day"] = int(data.split()[1])
             # query.edit_message_text("Выберите пару", reply_markup=InlineKeyboardMarkup(keyboard_of_lessons))
-            lessons = getLessonsForStudent(getID(query))
-            keyboard_of_lessons = []
-            for i in lessons:
-                urok = ""
-            markup = InlineKeyboardMarkup(keyboard_of_lessons)
+            lessons = getLessonsForStudent(getID(query),
+                                           day=context.user_data["day"],
+                                           month=context.user_data["number_month"],
+                                           year=context.user_data["year"])
+            for i in range(len(lessons)):
+                print(lessons[i])
+                # [InlineKeyboardButton("Математика", callback_data="No")]
+                # print(type(lessons[i]["TimeBegin"]))
+                # print(lessons[i]["TimeBegin"])
+                # print(type(lessons[i]["TimeEnd"]))
+                # print(lessons[i]["TimeBegin"][6:-2])
+                # print(datetime.datetime.utcfromtimestamp(int(lessons[i]["TimeBegin"][6:-2])))
+                # print(lessons[i]["TimeBegin"].split())
+                h = f"""8:30 | {lessons[i]["SubjectName"]} | Аудитория {lessons[i]["Building"]}-{lessons[i]["Classroom"].split()[-1]} | {lessons[i]["TeacherName"]}"""
+                # h = f"""{lessons[i]["SubjectName"]}"""
+                # h = f"""{"Математика"}"""
+                lessons[i] = [InlineKeyboardButton(h, callback_data='No')]
+            lessons.append([InlineKeyboardButton("Назад", callback_data="back_to_watch_calendar_days")])
+            markup = InlineKeyboardMarkup(lessons)
             query.edit_message_text("Вот все пары", reply_markup=markup)
+    elif data == "left_rating":
+        semestr = context.user_data["semestr"]
+        print(semestr)
+        if semestr - 1 >= 1:
+
+            sess = db_session.create_session()
+            user = sess.query(User).filter(User.id == query.message.chat_id).first()
+            response = getRating(user.skgmi_id)
+            keyboard = [[InlineKeyboardButton(dic_semestrs[semestr - 1], callback_data="No")],
+                        [InlineKeyboardButton("<=", callback_data="left_rating"),
+                         InlineKeyboardButton("=>", callback_data="right_rating")],
+                        [InlineKeyboardButton("Предмет | Контроль | Рейтинг ", callback_data="No")]]
+            for i in response:
+                if i["Term"] == dic_semestrs[semestr - 1]:
+                    keyboard.append([InlineKeyboardButton(
+                        i["SubjectName"] + " | " + str(i["RatingControl_1"]) + " | " + str(i["CurrentControl_1"]),
+                        callback_data="No")])
+            context.user_data["semestr"] -= 1
+            query.edit_message_text("Ваш рейтинг", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif data == "right_rating":
+        semestr = context.user_data["semestr"]
+        print(semestr)
+        if semestr + 1 <= len(dic_semestrs):
+            sess = db_session.create_session()
+            user = sess.query(User).filter(User.id == query.message.chat_id).first()
+            response = getRating(user.skgmi_id)
+            keyboard = [[InlineKeyboardButton(dic_semestrs[semestr + 1], callback_data="No")],
+                        [InlineKeyboardButton("<=", callback_data="left_rating"),
+                         InlineKeyboardButton("=>", callback_data="right_rating")],
+                        [InlineKeyboardButton("Предмет | Контроль | Рейтинг ", callback_data="No")]]
+            for i in response:
+                if i["Term"] == dic_semestrs[semestr + 1]:
+                    keyboard.append([InlineKeyboardButton(
+                        i["SubjectName"] + " | " + str(i["RatingControl_1"]) + " | " + str(i["CurrentControl_1"]),
+                        callback_data="No")])
+            for i in keyboard:
+                print(i)
+            # markup = InlineKeyboardMarkup(keyboard)
+            context.user_data["semestr"] += 1
+            # query.edit_message_text("Ваш рейтинг")
+            # query.message.edit_reply_markup(markup)
+            query.edit_message_text("Ваш рейтинг", reply_markup=InlineKeyboardMarkup(keyboard))
     elif data == "back_to_watch_calendar_days":
         query.delete_message()
         watch(query, context)
-    elif data.isdigit():
-        keyboard_of_lessons = [
-            [InlineKeyboardButton("Математика", callback_data="predmet Математика 1")],
-            [InlineKeyboardButton("Английский язык", callback_data="predmet Английский язык 2")],
-            [InlineKeyboardButton("Информатика", callback_data="predmet Информатика 3")],
-            [InlineKeyboardButton("Физика", callback_data="predmet Физика 4")],
-            [InlineKeyboardButton("Отмена", callback_data="cancel")]
-        ]
-        context.user_data["day"] = int(data)
-        # query.edit_message_text("Выберите пару", reply_markup=InlineKeyboardMarkup(keyboard_of_lessons))
-        markup = InlineKeyboardMarkup(keyboard_of_lessons)
-        query.edit_message_text("Вам показаны все ваши пары, выберите из них ту которую нужно заместить",
-                                reply_markup=markup)
-        # print("chislo")
+    # elif data.isdigit():
+    #     keyboard_of_lessons = [
+    #         [InlineKeyboardButton("Математика", callback_data="predmet Математика 1")],
+    #         [InlineKeyboardButton("Английский язык", callback_data="predmet Английский язык 2")],
+    #         [InlineKeyboardButton("Информатика", callback_data="predmet Информатика 3")],
+    #         [InlineKeyboardButton("Физика", callback_data="predmet Физика 4")],
+    #         [InlineKeyboardButton("Отмена", callback_data="cancel")]
+    #     ]
+    #     context.user_data["day"] = int(data)
+    #     # query.edit_message_text("Выберите пару", reply_markup=InlineKeyboardMarkup(keyboard_of_lessons))
+    #     markup = InlineKeyboardMarkup(keyboard_of_lessons)
+    #     query.edit_message_text("Вам показаны все ваши пары, выберите из них ту которую нужно заместить",
+    #                             reply_markup=markup)
+    # print("chislo")
     # elif data.split()[0] == "agree":
     #     sess = db_session.create_session()
-#     #     print(int(data.split()[1]))
+    #     #     print(int(data.split()[1]))
     #     sess.query(Substitution).filter(Substitution.id == int(data.split()[1])).delete()
     #     sess.commit()
     #     query.edit_message_text("Вы приняли замещение")
     elif data == "cancel":
-        query.edit_message_text("Постановка замещения отменена")
-    elif data == "cancel_watch":
-        query.edit_message_text("Просмотр отменён")
+        query.edit_message_text("Просмотр расписания отменён")
     # elif data.split()[0] == "predmet":
     #     subject = " ".join(data.split()[1:-1])
     #     sess = db_session.create_session()
@@ -351,7 +462,6 @@ def keyboard_buttons_query(update: Update, context: CallbackContext):
     # for i in chats:
 def inputSKGMIID(update, context):
     text = update.message.text
-    is_provered = 0
     response = genarateCodeAndSendOnEmail(update.message.text)
     if response == 200:
         is_provered = 1
@@ -370,8 +480,9 @@ def inputSKGMIID(update, context):
 
 def reg(update, context):
     code = update.message.text
-    update.message.reply_text("Идёт проверка....")
+    message_about_searching = update.message.reply_text("Идёт проверка....")
     response = ValidateCode(context.user_data["SKGMI.ID"], code, update.message.chat_id)
+    message_about_searching.delete()
     if response == 200:
         sess = db_session.create_session()
         new_user = User()
@@ -386,10 +497,127 @@ def reg(update, context):
         update.message.reply_text("Неверный код")
         update.message.reply_text("Регистрация отменена")
     return ConversationHandler.END
+
+def getSession(skgmiId):
+    response = requests.get(f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Performance/GetSession?skgmiId={skgmiId}")
+    return json.loads(response.json())
 # def callback_minute(context):
 #     my_time = datetime.time(minute=0, hour=8)
 #     now_time = datetime.time
 #     context.bot.send_message(chat_id=1288005934, text='One message every minute')
+
+def find_id(update, context):
+    update.message.reply_text("Введите ФИО через пробел\n"
+                              "(Напишите /cancel для отмены)")
+    return 1
+
+
+def find_FIO(update, context):
+    update.message.reply_text("Введите SKGMI.ID")
+    return 1
+
+
+def backFIO(update, context):
+    try:
+        if update.message.text == "/cancel":
+            update.message.reply_text("Отмена")
+            return ConversationHandler.END
+        skgmi_id = update.message.text
+        response = getUserName(skgmi_id)
+        message_about_searching = update.message.reply_text("Идёт поиск..")
+        message_about_searching.delete()
+        update.message.reply_text(response["DisplayName"])
+        return ConversationHandler.END
+    except Exception:
+        update.message.reply_text("Такого пользователя не найдено")
+        update.message.reply_text("Попробуйте снова")
+        return 1
+    # except Exception:
+    #     update.message.reply_text("Неверный ввод")
+    #     update.message.reply_text("Попробуйте снова")
+    #     return 1
+    # except Exception:
+    #     update.message.reply_text("Неверный ввод")
+    #     update.message.reply_text("Попробуйте снова")
+    #     update.message.reply_text("ljhrdlgkjdhfo;k")
+    #     return 1
+
+
+def backSKGMI(update, context):
+    try:
+        if update.message.text == "/cancel":
+            update.message.reply_text("Отмена")
+            return ConversationHandler.END
+        fio = update.message.text
+        response = getSkgmiIdFIO(fio)
+        message_about_searching = update.message.reply_text("Идёт поиск..")
+        update.message.reply_text(response["Username"])
+        message_about_searching.delete()
+        return ConversationHandler.END
+    except Exception:
+        update.message.reply_text("Такого пользователя не найдено")
+        update.message.reply_text("Попробуйте снова")
+        return 1
+    # except Exception:
+    #     update.message.reply_text("Неверный ввод")
+    #     update.message.reply_text("Попробуйте снова")
+    #     return 1
+
+
+def myRating(update, context):
+    t = proverka(update, context)
+    if t:
+        sess = db_session.create_session()
+        user = sess.query(User).filter(User.id == update.message.chat_id).first()
+        this_user = getUserName(user.skgmi_id)
+        if this_user["IsStudent"]:
+        # if True:
+            rating = getRating(user.skgmi_id)
+            keyboard = [[InlineKeyboardButton("Первый семестр", callback_data="No")],
+                        [InlineKeyboardButton("<=", callback_data="left_rating"),
+                         InlineKeyboardButton("=>", callback_data="right_rating")],
+                        [InlineKeyboardButton("Предмет | Контроль | Рейтинг ", callback_data="No")]]
+            context.user_data["semestr"] = 1
+            for i in rating:
+                # print(i)
+                # print(type(i))
+                # print()
+                if i["Term"] == "Первый семестр":
+                    keyboard.append([InlineKeyboardButton(
+                        i["SubjectName"] + " | " + str(i["RatingControl_1"]) + " | " + str(i["CurrentControl_1"]),
+                        callback_data="No")])
+                # keyboard.append([InlineKeyboardButton(i["SubjectName"], callback_data="No"), InlineKeyboardButton(str(i["RatingControl_1"]), callback_data="No"), InlineKeyboardButton(str(i["CurrentControl_1"]), callback_data="No")])
+
+            markup = InlineKeyboardMarkup(keyboard)
+            update.message.reply_text("Ваш рейтинг", reply_markup=markup)
+        else:
+            update.message.reply_text("Вы не студент")
+    else:
+        update.message.reply_text("Вы не зарегистрированы")
+def get_sess(update, context):
+    keyboard = [[InlineKeyboardButton("Первый семестр", callback_data="No")],
+                [InlineKeyboardButton("<=", callback_data="left_sess"),
+                 InlineKeyboardButton("=>", callback_data="right_sess")],
+                [InlineKeyboardButton("Предмет | Тип | Оценка", callback_data="No")]]
+    sess = db_session.create_session()
+    user = sess.query(User).filter(User.id == update.message.chat_id).first()
+    this_user = getUserName(user.skgmi_id)
+    t = update.message.reply_text("Получение данных...")
+    if this_user["IsStudent"]:
+    # if True:
+        response = getSession(this_user["Username"])
+        context.user_data["session"] = 1
+        for i in response:
+            if i["Term"] == "Первый семестр":
+                button = InlineKeyboardButton(f"""{i["Subject"]}|{i["TypeOfTheControl"]}|{i["Mark"]}""", callback_data="No")
+                keyboard.append([button])
+        markup = InlineKeyboardMarkup(keyboard)
+        t.delete()
+        context.user_data["semestr"] = 1
+        update.message.reply_text("Оценки за сессию", reply_markup=markup)
+    else:
+        update.message.reply_text("Вы не студент")
+
 
 def main():
     updater = Updater(TOKEN, use_context=True)
@@ -403,12 +631,33 @@ def main():
         },
         fallbacks=[CommandHandler("cancel", cancel)]
     )
+    find_skgmi_id_from_FIO = ConversationHandler(
+        entry_points=[CommandHandler('getID', find_id)],
+        states={
+            1: [MessageHandler(Filters.text, backSKGMI)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
+    )
+    find_fio = ConversationHandler(
+        entry_points=[CommandHandler('getFIO', find_FIO)],
+        states={
+            1: [MessageHandler(Filters.text, backFIO)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
+    )
     # dp.add_handler(CommandHandler("replace", replace))
     dp.add_handler(registration)
+
+    dp.add_handler(find_skgmi_id_from_FIO)
+    dp.add_handler(find_fio)
     dp.add_handler(CommandHandler("watch", watch))
+    dp.add_handler(CommandHandler("sess", get_sess))
+    dp.add_handler(CommandHandler("rating", myRating))
     dp.add_handler(CommandHandler("logout", logout))
     dp.add_handler(CommandHandler("help", help))
+    dp.add_handler(CommandHandler("myId", myId))
     dp.add_handler(CommandHandler("start", start))
+
     updater.start_polling()
     # jq = updater.job_queue
     # job_minute = jq.run_repeating(callback_minute, interval=60*15)
@@ -420,14 +669,20 @@ def main():
 
 
 def getRating(skgmiID):
-    response = requests.get(f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Performance/GetRating?skgmiID={skgmiID}")
-    return response.json()
+    response = requests.get(
+        f"https://my.expasys.group/DesktopModules/Expasys/BotApi/API/Performance/GetRating?skgmiId={skgmiID}")
+    # return json.loads(response.json())
+    return json.loads(response.json())
+
+
+def getSkgmiIdFIO(fio):
+    response = requests.get(
+        f'https://my.expasys.group/DesktopModules/Expasys/BotApi/API/UserData/ByDisplayName?name={fio}')
+    return json.loads(response.json())
 
 
 if __name__ == '__main__':
-#     # print(ValidateCode("timur@skgmi.id", "66357"))
-#     lessons = getLessonsForStudent("kdfj")
-    # for i in lessons:
-    #     print(i)
+    # response = getSession("timur@skgmi.id")
+    # print(response)
     db_session.global_init("db/blogs.db")
     main()
