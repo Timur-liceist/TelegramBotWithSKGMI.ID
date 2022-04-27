@@ -13,7 +13,7 @@ dic_semestrs = {1: "Первый семестр", 2: "Второй семест�
                    9: "Девятый семестр"}
 # from pprint import pprint
 
-TOKEN = "5202082113:AAGXyFL-I9Q1j-Nne1YRY7mawvKCdKlDIqY"
+TOKEN = "5192554941:AAHxw_cR7O7rG1feNC7kRCxhFfKMMjKAdqY"
 from telegram.ext import CommandHandler
 
 text_commands = [["/getId", "/getFIO", "/watch"],
@@ -263,7 +263,7 @@ def keyboard_buttons_query(update: Update, context: CallbackContext):
             sess = db_session.create_session()
             sess.query(User).filter(User.id == query.message.chat_id).delete()
             sess.commit()
-            query.edit_message_text("Вы успешно вышли из аккаунта и все объявления об замещении удалены")
+            query.edit_message_text("Вы успешно вышли из аккаунта")
     elif data == "right":
         number_month = context.user_data["number_month"]
         year = context.user_data["year"]
