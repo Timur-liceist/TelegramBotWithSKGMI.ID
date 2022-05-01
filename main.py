@@ -592,23 +592,23 @@ def myRating(update, context):
         this_user = getUserName(user.skgmi_id)
         if this_user["IsStudent"]:
         # if True:
-        rating = getRating(user.skgmi_id)
-        keyboard = [[InlineKeyboardButton("Первый семестр", callback_data="show_semestrs_rating")],
-                    [InlineKeyboardButton("<=", callback_data="left_rating"),
-                     InlineKeyboardButton("=>", callback_data="right_rating")],
-                    [InlineKeyboardButton("Предмет | Контроль | Рейтинг ", callback_data="No")]]
-        context.user_data["semestr"] = 1
-        for i in rating:
-            if i["Term"] == "Первый семестр":
-                keyboard.append([InlineKeyboardButton(
-                    i["SubjectName"] + " | " + str(i["RatingControl_1"]) + " | " + str(i["CurrentControl_1"]),
-                    callback_data="No")])
+            rating = getRating(user.skgmi_id)
+            keyboard = [[InlineKeyboardButton("Первый семестр", callback_data="show_semestrs_rating")],
+                        [InlineKeyboardButton("<=", callback_data="left_rating"),
+                         InlineKeyboardButton("=>", callback_data="right_rating")],
+                        [InlineKeyboardButton("Предмет | Контроль | Рейтинг ", callback_data="No")]]
+            context.user_data["semestr"] = 1
+            for i in rating:
+                if i["Term"] == "Первый семестр":
+                    keyboard.append([InlineKeyboardButton(
+                        i["SubjectName"] + " | " + str(i["RatingControl_1"]) + " | " + str(i["CurrentControl_1"]),
+                        callback_data="No")])
             # keyboard.append([InlineKeyboardButton(i["SubjectName"], callback_data="No"), InlineKeyboardButton(str(i["RatingControl_1"]), callback_data="No"), InlineKeyboardButton(str(i["CurrentControl_1"]), callback_data="No")])
 
-    markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("Ваш рейтинг", reply_markup=markup)
-    else:
-    update.message.reply_text("Вы не студент")
+            markup = InlineKeyboardMarkup(keyboard)
+            update.message.reply_text("Ваш рейтинг", reply_markup=markup)
+        else:
+            update.message.reply_text("Вы не студент")
     else:
         update.message.reply_text("Вы не зарегистрированы")
 
